@@ -11,6 +11,8 @@ import {
 } from "@/lib/services/scan";
 import { CheerioAuditService } from "@/lib/services/audit";
 import { SonarContentService } from "@/lib/services/content";
+import { verifyPublication } from "@/lib/services/publish";
+import { runSandboxExperiment } from "@/lib/services/sandbox";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -100,6 +102,10 @@ export async function GET(
 const actionSchemas = {
   draft: z.object({ kind: z.enum(["about", "faq", "schema", "menu", "landing", "outreach", "description"]), recommendationId: z.string().max(120).optional(), regenerateOf: z.string().uuid().optional() }),
   draftUpdate: z.object({ id: z.string().uuid(), body: z.string().max(40_000).optional(), approve: z.boolean().optional(), event: z.enum(["copied", "exported"]).optional() }).strict(),
+  publishFix: z.object({ recommendationId: z.string().max(120).optional() }).strict(),
+  verifyPublication: z.object({ id: z.string().uuid(), url: z.string().url().max(2000) }).strict(),
+  recheckPublication: z.object({ id: z.string().uuid() }).strict(),
+  sandboxTest: z.object({ id: z.string().uuid() }).strict(),
   recommendation: z.object({
     id: z.string().min(1).max(100),
     status: z.enum(["open", "done"]),
@@ -201,9 +207,31 @@ export async function POST(
       const body = actionSchemas.draft.parse(await request.json());
       return json(await new SonarContentService().create(body.kind, body.recommendationId, body.regenerateOf));
     }
+    if (action === "publish-fix") {
+      const body = actionSchemas.publishFix.parse(await request.json());
+      return json(await new SonarContentService().createPublishFix(body.recommendationId));
+    }
     if (action === "draft-update") {
       const body = actionSchemas.draftUpdate.parse(await request.json());
       return json(await new SonarContentService().update(body.id, body.body, body.approve, body.event));
+    }
+    if (action === "verify-publication") {
+      const body = actionSchemas.verifyPublication.parse(await request.json());
+      return json(await verifyPublication(body.id, body.url));
+    }
+    if (action === "recheck-publication") {
+      const body = actionSchemas.recheckPublication.parse(await request.json());
+      const repo = getRepository(); const data = await repo.read(); const draft = data.drafts.find((item) => item.id === body.id);
+      if (!draft?.publish?.queryId) throw new Error("The original search opportunity is unavailable for this fix.");
+      if (draft.status !== "verified") throw new Error("Verify the published page before rechecking visibility.");
+      const scan = await startScan(1, [draft.publish.queryId]); const now = new Date().toISOString();
+      await repo.updateDraft({ ...draft, status: "monitoring", updatedAt: now, publish: { ...draft.publish, followUpScanIds: [...(draft.publish.followUpScanIds ?? []), scan.id] }, history: [...(draft.history ?? []), { at: now, action: "visibility_rechecked", detail: `Follow-up scan ${scan.id} started` }] });
+      after(async () => { try { await executeScan(scan); } catch { console.error("Follow-up scan failed", scan.id); } });
+      return json(scan, 202);
+    }
+    if (action === "sandbox-test") {
+      const body = actionSchemas.sandboxTest.parse(await request.json());
+      return json(await runSandboxExperiment(body.id));
     }
     if (action === "recommendation") {
       const body = actionSchemas.recommendation.parse(await request.json());

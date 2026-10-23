@@ -129,11 +129,43 @@ export type ContentDraft = {
   visibilityGap?: string;
   recommendationId?: string;
   model?: string;
-  history?: { at: string; action: "created" | "regenerated" | "edited" | "approved" | "exported" | "copied" | "pull_request"; detail?: string }[];
+  publish?: {
+    title: string;
+    metaDescription: string;
+    heroHeadline: string;
+    faq: { question: string; answer: string }[];
+    internalLinks: string[];
+    jsonLd: string;
+    html: string;
+    publishingMethod?: "manual" | "connected";
+    publishedUrl?: string;
+    verification?: {
+      status: "pending" | "passed" | "failed";
+      checkedAt: string;
+      httpStatus?: number;
+      checks: { label: string; passed: boolean; detail: string }[];
+    };
+    baselineScanId?: string;
+    followUpScanIds?: string[];
+    queryId?: string;
+  };
+  sandbox?: {
+    experimentId: string;
+    customerQuery: string;
+    originalProfile: string;
+    improvedProfile: string;
+    configuration: { model: string; repeats: number; order: ("original" | "improved")[] };
+    status: "draft" | "running" | "completed" | "partial" | "failed";
+    originalResults: { answer: string; citations: string[]; mentions: Mention[]; status: "success" | "unverified" | "failed"; createdAt: string; error?: string }[];
+    improvedResults: { answer: string; citations: string[]; mentions: Mention[]; status: "success" | "unverified" | "failed"; createdAt: string; error?: string }[];
+    createdAt: string;
+    completedAt?: string;
+  };
+  history?: { at: string; action: "created" | "regenerated" | "edited" | "approved" | "exported" | "copied" | "pull_request" | "published" | "verified" | "visibility_rechecked"; detail?: string }[];
   createdAt: string;
   updatedAt?: string;
   source: "template" | "sonar";
-  status: "draft" | "approved";
+  status: "draft" | "approved" | "published" | "verified" | "monitoring";
 };
 export type Measurement = {
   scanId: string;

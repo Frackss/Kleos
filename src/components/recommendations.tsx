@@ -155,7 +155,7 @@ export function Recommendations({
                       </Link>
                     )}
                     <Button onClick={() => onGenerate(r)} disabled={busy} size="sm" variant="outline" className="mt-4">
-                      Generate Fix
+                      {r.category === "AI discovery" ? "Generate & Publish Fix" : "Generate Fix"}
                     </Button>
                   </div>
                 </div>

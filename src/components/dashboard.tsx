@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { RefreshCw, TriangleAlert } from "lucide-react";
 import type {
@@ -24,6 +25,7 @@ async function loadDashboard(signal?: AbortSignal) {
   return { ok: response.ok, body: await response.json() };
 }
 export function Dashboard({ section }: { section: Section }) {
+  const router = useRouter();
   const [data, setData] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -231,18 +233,13 @@ export function Dashboard({ section }: { section: Section }) {
               onUpdate={(id: string, status: Recommendation["status"]) =>
                 void action("recommendation", { id, status })
               }
-              onGenerate={(recommendation) =>
-                void action("draft", {
+              onGenerate={(recommendation) => {
+                const publish = recommendation.category === "AI discovery";
+                void action(publish ? "publish-fix" : "draft", publish ? { recommendationId: recommendation.id } : {
                   recommendationId: recommendation.id,
-                  kind: recommendation.category === "Website"
-                    ? recommendation.title.toLowerCase().includes("schema")
-                      ? "schema"
-                      : "about"
-                    : recommendation.category === "AI discovery"
-                      ? "landing"
-                      : "about",
-                })
-              }
+                  kind: recommendation.category === "Website" ? (recommendation.title.toLowerCase().includes("schema") ? "schema" : "about") : "about",
+                }).then(() => { if (publish) router.push("/studio"); });
+              }}
             />
           )}
           {section === "studio" && (
@@ -255,6 +252,10 @@ export function Dashboard({ section }: { section: Section }) {
               onUpdate={(id, body, approve, event) =>
                 void action("draft-update", { id, body, approve, event })
               }
+              onPublishFix={() => void action("publish-fix")}
+              onVerify={(id, url) => void action("verify-publication", { id, url })}
+              onRecheck={(id) => void action("recheck-publication", { id })}
+              onSandbox={(id) => void action("sandbox-test", { id })}
             />
           )}
           {section === "measurement" && (

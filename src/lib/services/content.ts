@@ -42,6 +42,18 @@ function validateSchema(body: string) {
     throw new Error("Generated JSON-LD includes unsupported ratings, reviews, menu items, or prices.");
   return JSON.stringify(object, null, 2);
 }
+function publishHtml(restaurant: { name: string; address: string; website: string }, content: { heroHeadline: string; description: string; faq: { question: string; answer: string }[]; internalLinks: string[] }) {
+  const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);
+  return `<main><section><p>Pacific Beach · San Diego</p><h1>${escape(content.heroHeadline)}</h1><p>${escape(content.description)}</p><a href="${restaurant.website}">Visit Café Athena</a></section><section><h2>Questions diners ask</h2>${content.faq.map((item) => `<article><h3>${escape(item.question)}</h3><p>${escape(item.answer)}</p></article>`).join("")}</section><nav aria-label="Suggested internal links">${content.internalLinks.map((item) => `<a href="#">${escape(item)}</a>`).join(" · ")}</nav></main>`;
+}
+function validatePublishPackage(value: unknown, restaurant: { name: string; website: string; address: string; cuisine: string }) {
+  const item = value as Record<string, unknown>;
+  const faq = Array.isArray(item.faq) ? item.faq.filter((entry): entry is { question: string; answer: string } => Boolean(entry && typeof (entry as { question?: unknown }).question === "string" && typeof (entry as { answer?: unknown }).answer === "string")).slice(0, 6) : [];
+  if (typeof item.title !== "string" || typeof item.metaDescription !== "string" || typeof item.heroHeadline !== "string" || typeof item.description !== "string" || faq.length < 2 || !Array.isArray(item.internalLinks) || typeof item.jsonLd !== "string") throw new Error("Sonar returned an incomplete publish package. Try generate again.");
+  const jsonLd = validateSchema(item.jsonLd);
+  const internalLinks = item.internalLinks.filter((entry): entry is string => typeof entry === "string").slice(0, 5);
+  return { title: item.title.slice(0, 70), metaDescription: item.metaDescription.slice(0, 170), heroHeadline: item.heroHeadline.slice(0, 140), faq, internalLinks, jsonLd, html: publishHtml(restaurant, { heroHeadline: item.heroHeadline, description: item.description, faq, internalLinks }) };
+}
 async function draftWithSonar(prompt: string) {
   const key = process.env.PERPLEXITY_API_KEY;
   if (!key) throw new Error("Live search is not connected. Add PERPLEXITY_API_KEY and restart.");
@@ -61,6 +73,17 @@ async function draftWithSonar(prompt: string) {
 }
 
 export class SonarContentService {
+  async createPublishFix(recommendationId?: string) {
+    const repo = getRepository(); const data = await repo.read(); const recommendation = data.recommendations.find((item) => item.id === recommendationId); const audit = data.audits[0];
+    const prompt = `Return ONLY a JSON object with title, metaDescription, heroHeadline, description, faq (array of question and answer), internalLinks (array of short link labels), and jsonLd (a JSON string). Create a publish-ready local landing page for the supplied search opportunity. FAQ content is intended to appear visibly on the page. Use no unverified claims. JSON-LD must be a Restaurant object with @context, @type, name, url, servesCuisine and PostalAddress only; include hasMenu only if verified.\n\nSearch opportunity: ${recommendation?.evidence ?? "Best date night restaurants in Pacific Beach"}\nRestaurant: ${data.restaurant.name}\nWebsite: ${data.restaurant.website}\nAddress: ${data.restaurant.address}\nCuisine: ${data.restaurant.cuisine}\nVerified audit facts: ${audit?.checks.filter((check) => check.status === "present").map((check) => check.label).join("; ") ?? "No audit findings"}\nUser-supplied details: ${data.restaurant.highlights.join("; ")}`;
+    const raw = await draftWithSonar(prompt);
+    let packageValue: unknown; try { packageValue = JSON.parse(raw); } catch { throw new Error("Sonar did not return a valid publish package. Try generate again."); }
+    const publish = validatePublishPackage(packageValue, data.restaurant);
+    const now = new Date().toISOString(); const baseline = data.scans.find((scan) => scan.status === "completed" || scan.status === "partial");
+    const opportunityQuery = data.queries.find((query) => /date night|romantic|cocktails/i.test(query.text)) ?? data.queries[0];
+    const draft: ContentDraft = { id: randomUUID(), restaurantId: data.restaurant.id, kind: "landing", title: "Publish-ready local landing page", body: publish.html, rationale: recommendation?.description ?? "A Sonar-generated local page based on supplied details and verified audit findings.", visibilityGap: recommendation?.evidence, recommendationId, model: searchModelLabel(), publish: { ...publish, baselineScanId: baseline?.id, followUpScanIds: [], queryId: opportunityQuery?.id }, history: [{ at: now, action: "created", detail: "Search analyzed and publish fix generated" }], createdAt: now, source: "sonar", status: "draft" };
+    await repo.saveDraft(draft); return draft;
+  }
   async create(kind: ContentDraft["kind"], recommendationId?: string, regenerateOf?: string) {
     const repo = getRepository();
     const data = await repo.read();

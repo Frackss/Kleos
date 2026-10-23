@@ -7,9 +7,11 @@ import type { Snapshot } from "@/lib/types";
 export function Badge({
   children,
   tone = "neutral",
+  className,
 }: {
   children: React.ReactNode;
   tone?: "neutral" | "blue" | "green" | "amber" | "red";
+  className?: string;
 }) {
   return (
     <span
@@ -22,6 +24,7 @@ export function Badge({
           amber: "bg-[#f7efd9] text-[#8a5a10]",
           red: "bg-[#fbefe8] text-terracotta",
         }[tone],
+        className,
       )}
     >
       {children}

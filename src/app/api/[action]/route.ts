@@ -1,6 +1,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { discoveryCsv } from "@/lib/export";
+import { comparisonCsv } from "@/lib/comparison";
 import { getRepository, hasSupabase } from "@/lib/repositories/repository";
 import {
   startScan,
@@ -9,7 +10,7 @@ import {
   expireInterruptedScans,
 } from "@/lib/services/scan";
 import { CheerioAuditService } from "@/lib/services/audit";
-import { TemplateContentService } from "@/lib/services/content";
+import { SonarContentService } from "@/lib/services/content";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -54,6 +55,14 @@ export async function GET(
       ).length,
     }));
     if (action === "export") {
+      const beforeId = _request.nextUrl.searchParams.get("before");
+      const afterId = _request.nextUrl.searchParams.get("after");
+      if (beforeId && afterId) {
+        const before = data.scans.find((scan) => scan.id === beforeId);
+        const after = data.scans.find((scan) => scan.id === afterId);
+        if (!before || !after) return json({ error: "Scan not found." }, 404);
+        return new NextResponse(comparisonCsv(before, after, data.results), { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="kleos-comparison-${before.id}-${after.id}.csv"`, "Cache-Control": "no-store" } });
+      }
       const id = _request.nextUrl.searchParams.get("scanId");
       const category = _request.nextUrl.searchParams.get("category") ?? "all";
       if (!id || !data.scans.some((s) => s.id === id))
@@ -89,7 +98,8 @@ export async function GET(
   }
 }
 const actionSchemas = {
-  draft: z.object({ kind: z.enum(["description", "faq", "schema"]) }),
+  draft: z.object({ kind: z.enum(["about", "faq", "schema", "menu", "landing", "outreach", "description"]), recommendationId: z.string().max(120).optional(), regenerateOf: z.string().uuid().optional() }),
+  draftUpdate: z.object({ id: z.string().uuid(), body: z.string().max(40_000).optional(), approve: z.boolean().optional(), event: z.enum(["copied", "exported"]).optional() }).strict(),
   recommendation: z.object({
     id: z.string().min(1).max(100),
     status: z.enum(["open", "done"]),
@@ -120,10 +130,11 @@ export async function POST(
             .min(1)
             .max(30)
             .optional(),
+          baselineScanId: z.string().uuid().optional(),
         })
         .strict()
         .parse(await request.json());
-      const scan = await startScan(body.count, body.queryIds);
+      const scan = await startScan(body.count, body.queryIds, body.baselineScanId);
       after(async () => {
         try {
           await executeScan(scan);
@@ -188,7 +199,11 @@ export async function POST(
       return json(await new CheerioAuditService().audit());
     if (action === "draft") {
       const body = actionSchemas.draft.parse(await request.json());
-      return json(await new TemplateContentService().create(body.kind));
+      return json(await new SonarContentService().create(body.kind, body.recommendationId, body.regenerateOf));
+    }
+    if (action === "draft-update") {
+      const body = actionSchemas.draftUpdate.parse(await request.json());
+      return json(await new SonarContentService().update(body.id, body.body, body.approve, body.event));
     }
     if (action === "recommendation") {
       const body = actionSchemas.recommendation.parse(await request.json());

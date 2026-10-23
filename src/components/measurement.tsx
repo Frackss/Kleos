@@ -1,192 +1,25 @@
 "use client";
-import { Download, History } from "lucide-react";
-import type { Measurement as MeasurementType, Snapshot } from "@/lib/types";
+import { useMemo, useState } from "react";
+import { Download, History, RefreshCw } from "lucide-react";
+import type { Measurement as MeasurementType, ScanRun, Snapshot } from "@/lib/types";
+import { compareScans } from "@/lib/comparison";
 import { dateLabel } from "@/lib/utils";
 import { Badge, EmptyState, PageHeading } from "./shared";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { TrendChart } from "./trend-chart";
-export function Measurement({
-  data,
-  measurements,
-}: {
-  data: Snapshot;
-  measurements: MeasurementType[];
-}) {
-  function exportCsv() {
-    const rows = [
-      [
-        "Date",
-        "Visibility score",
-        "Mention rate (%)",
-        "Average position",
-        "Share of voice (%)",
-        "Successful queries",
-        "Total queries",
-        "Query set",
-      ],
-      ...measurements.map((m) => [
-        m.createdAt,
-        m.visibilityScore,
-        m.mentionRate,
-        m.averagePosition ?? "",
-        m.shareOfVoice.toFixed(2),
-        m.successfulQueries,
-        m.totalQueries,
-        m.querySet,
-      ]),
-    ];
-    const url = URL.createObjectURL(
-      new Blob([rows.map((r) => r.join(",")).join("\n")], {
-        type: "text/csv;charset=utf-8;",
-      }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "kleos-measurements.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  return (
-    <>
-      <PageHeading
-        title="Measure what changes"
-        description="Build a real baseline, make improvements, and track your next scan."
-        action={
-          <Button
-            variant="outline"
-            disabled={!measurements.length}
-            onClick={exportCsv}
-          >
-            <Download />
-            Export CSV
-          </Button>
-        }
-      />
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>AI visibility history</CardTitle>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {measurements.length} measured scans · no synthetic history
-            </p>
-          </div>
-          <Badge tone="blue">0–100</Badge>
-        </CardHeader>
-        <TrendChart measurements={measurements} />
-      </Card>
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Scan log</CardTitle>
-          <History className="size-4 text-muted-foreground" />
-        </CardHeader>
-        {data.scans.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-y border-border bg-muted/50 text-muted-foreground">
-                <tr>
-                  {[
-                    "Started",
-                    "Status",
-                    "Coverage",
-                    "Visibility",
-                    "Mention rate",
-                  ].map((h) => (
-                    <th key={h} className="px-6 py-3 font-medium">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.scans.map((s) => {
-                  const m = measurements.find((m) => m.scanId === s.id);
-                  return (
-                    <tr
-                      key={s.id}
-                      className="border-b border-border last:border-0"
-                    >
-                      <td className="whitespace-nowrap px-6 py-4">
-                        {dateLabel(s.startedAt)}
-                      </td>
-                      <td className="px-6">
-                        <Badge
-                          tone={
-                            s.status === "completed"
-                              ? "green"
-                              : s.status === "failed"
-                                ? "red"
-                                : "amber"
-                          }
-                        >
-                          {s.status}
-                        </Badge>
-                      </td>
-                      <td className="px-6">
-                        {s.successCount}/{s.queryCount}
-                      </td>
-                      <td className="px-6">
-                        {m ? `${m.visibilityScore}/100` : "—"}
-                      </td>
-                      <td className="px-6">{m ? `${m.mentionRate}%` : "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyState
-            icon={History}
-            title="A clean starting point"
-            description="Every scan you run will appear here with its timestamp, coverage, and measured results."
-            compact
-          />
-        )}
-      </Card>
-      <Card className="mt-6" id="methodology">
-        <CardHeader>
-          <CardTitle>Transparent by design</CardTitle>
-          <Badge>Scoring methodology</Badge>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-x-10 gap-y-6 md:grid-cols-2">
-            {[
-              {
-                title: "AI Visibility Score",
-                text: "100 × mean reciprocal rank across successful queries. A #1 appearance contributes 100, #2 contributes 50, and absence or an unranked mention contributes 0. This is a directional score for this query set, not a universal SEO score.",
-              },
-              {
-                title: "Mention rate",
-                text: "Target appearances in verified recommendation lists divided by valid completed queries. Failed, cancelled and unverified answers are excluded; original responses remain available in AI Discovery.",
-              },
-              {
-                title: "Average position",
-                text: "The mean explicit recommendation position among responses where Café Athena is ranked. Missing and unranked mentions are excluded. A dash means no ranked appearances, not position zero.",
-              },
-              {
-                title: "Share of voice",
-                text: "A restaurant’s deduplicated mentions divided by all detected restaurant mentions in the same scan. The Overview shows Café Athena’s share; competitor bars show the percentage of successful answers naming each restaurant.",
-              },
-              {
-                title: "Fair comparisons",
-                text: "Compare the same query set and provider. Partial scans have different coverage and should be compared cautiously. AI answers are nondeterministic; improvements do not establish causality.",
-              },
-              {
-                title: "Source boundaries",
-                text: "Search metrics come only from real provider responses. Website audits inspect fetched homepage HTML. Supplied profile details and template drafts are labeled separately. No historical results are seeded.",
-              },
-            ].map((item) => (
-              <div key={item.title}>
-                <h3 className="text-xs font-semibold">{item.title}</h3>
-                <p className="mt-2 text-xs leading-6 text-muted-foreground">
-                  {item.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
+const completed = (scan: ScanRun) => scan.status === "completed" || scan.status === "partial";
+const rate = (value: number | null | undefined) => value === null || value === undefined ? "—" : `${value.toFixed(1)}%`;
+export function Measurement({ data, measurements, busy, onFollowUp }: { data: Snapshot; measurements: MeasurementType[]; busy: boolean; onFollowUp: (baseline: ScanRun) => void }) {
+  const scans = data.scans.filter(completed).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const [beforeId, setBeforeId] = useState(scans.at(-2)?.id ?? scans[0]?.id ?? "");
+  const [afterId, setAfterId] = useState(scans.at(-1)?.id ?? "");
+  const before = scans.find((scan) => scan.id === beforeId); const after = scans.find((scan) => scan.id === afterId);
+  const comparison = useMemo(() => before && after && before.id !== after.id ? compareScans(before, after, data.results) : null, [before, after, data.results]);
+  const delta = (a?: number | null, b?: number | null) => a === undefined || a === null || b === undefined || b === null ? "—" : `${b - a >= 0 ? "+" : ""}${(b - a).toFixed(1)}`;
+  return <>
+    <PageHeading title="Measure what changes" description="Compare only the exact queries that completed successfully in both saved scans. Changes are observations, not proven effects of content or website changes." action={scans.length ? <Button onClick={() => onFollowUp(scans.at(-1)!)} disabled={busy}><RefreshCw />Run Follow-Up Scan</Button> : undefined} />
+    <Card><CardHeader><div><CardTitle>AI visibility history</CardTitle><p className="mt-2 text-xs text-muted-foreground">{measurements.length} actual scan timestamps · no synthetic history</p></div><Badge tone="blue">0–100</Badge></CardHeader><TrendChart measurements={measurements} /></Card>
+    {scans.length < 2 ? <Card className="mt-6"><EmptyState icon={History} title="Your baseline is ready" description="Run a follow-up scan to reuse this exact query bank and see a controlled observation of changes." action={scans.length ? <Button onClick={() => onFollowUp(scans[0])} disabled={busy}><RefreshCw />Run Follow-Up Scan</Button> : undefined} /></Card> : <Card className="mt-6"><CardHeader><div><CardTitle>Controlled scan comparison</CardTitle><p className="mt-2 text-xs text-muted-foreground">Choose two historical scans. Only shared successful queries are included.</p></div>{comparison && before && after ? <a href={`/api/export?before=${before.id}&after=${after.id}`} className="inline-flex h-8 items-center gap-2 rounded-md border border-border px-3 text-xs font-medium"><Download className="size-3.5" />Export comparison</a> : null}</CardHeader><CardContent><div className="grid gap-3 md:grid-cols-2"><label className="text-xs font-medium">Baseline<select value={beforeId} onChange={(event) => setBeforeId(event.target.value)} className="mt-2 w-full rounded-md border border-border bg-white p-2 text-xs">{scans.map((scan) => <option key={scan.id} value={scan.id}>{dateLabel(scan.startedAt)} · {scan.queryCount} queries</option>)}</select></label><label className="text-xs font-medium">Follow-up<select value={afterId} onChange={(event) => setAfterId(event.target.value)} className="mt-2 w-full rounded-md border border-border bg-white p-2 text-xs">{scans.map((scan) => <option key={scan.id} value={scan.id}>{dateLabel(scan.startedAt)} · {scan.queryCount} queries</option>)}</select></label></div>{comparison ? <><p className="mt-5 text-xs text-muted-foreground">{comparison.pairs.length} queries successfully evaluated in both scans. Query bank versions: {before?.queryBankVersion ?? before?.querySet} → {after?.queryBankVersion ?? after?.querySet}.</p><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[["Mention rate", rate(comparison.before?.mentionRate), rate(comparison.after?.mentionRate), `${delta(comparison.before?.mentionRate, comparison.after?.mentionRate)} pp`],["Average rank", comparison.before?.averagePosition?.toFixed(1) ?? "—", comparison.after?.averagePosition?.toFixed(1) ?? "—", `${delta(comparison.before?.averagePosition, comparison.after?.averagePosition)} positions`],["Share of voice", rate(comparison.before?.shareOfVoice), rate(comparison.after?.shareOfVoice), `${delta(comparison.before?.shareOfVoice, comparison.after?.shareOfVoice)} pp`],["Visibility score", comparison.before?.visibilityScore ?? "—", comparison.after?.visibilityScore ?? "—", `${delta(comparison.before?.visibilityScore, comparison.after?.visibilityScore)} points`]].map(([label, left, right, change]) => <div key={String(label)} className="rounded-lg border border-border p-4"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-3 text-sm font-semibold">{left} → {right}</p><p className="mt-1 text-xs text-primary">{change}</p></div>)}</div><div className="mt-6 grid gap-5 md:grid-cols-2"><div><h3 className="text-xs font-semibold">Newly gained mentions ({comparison.gained.length})</h3>{comparison.gained.length ? <ul className="mt-3 space-y-2 text-xs text-muted-foreground">{comparison.gained.map((result) => <li key={result.id}>{result.query}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">None in the shared completed-query sample.</p>}</div><div><h3 className="text-xs font-semibold">Lost mentions ({comparison.lost.length})</h3>{comparison.lost.length ? <ul className="mt-3 space-y-2 text-xs text-muted-foreground">{comparison.lost.map((result) => <li key={result.id}>{result.query}</li>)}</ul> : <p className="mt-3 text-xs text-muted-foreground">None in the shared completed-query sample.</p>}</div></div></> : <p className="mt-5 text-xs text-muted-foreground">Select two different completed scans to compare.</p>}</CardContent></Card>}
+  </>;
 }

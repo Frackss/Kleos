@@ -58,6 +58,9 @@ export type ScanRun = {
   error?: string;
   source: "live";
   querySet: string;
+  queryBankVersion?: string;
+  model?: string;
+  baselineScanId?: string;
 };
 export type Competitor = {
   name: string;
@@ -65,6 +68,14 @@ export type Competitor = {
   shareOfVoice: number;
   averagePosition: number | null;
   isTarget: boolean;
+};
+export type AuditCheck = {
+  label: string;
+  status: "present" | "missing" | "unknown";
+  passed: boolean;
+  detail: string;
+  evidence?: string;
+  url?: string;
 };
 export type WebsiteAudit = {
   id: string;
@@ -74,12 +85,20 @@ export type WebsiteAudit = {
   title: string;
   description: string;
   h1: string[];
+  h2?: string[];
+  canonicalUrl?: string | null;
+  internalLinks?: { text: string; url: string }[];
+  menuPages?: string[];
+  jsonLd?: string[];
+  visibleText?: string;
+  aboutUrl?: string | null;
+  aboutContent?: string | null;
   hasRestaurantSchema: boolean;
   hasMenuLink: boolean;
   hasAddress: boolean;
   hasCanonical: boolean;
   wordCount: number;
-  checks: { label: string; passed: boolean; detail: string }[];
+  checks: AuditCheck[];
   source: "live";
 };
 export type Recommendation = {
@@ -92,16 +111,29 @@ export type Recommendation = {
   source: "setup" | "audit" | "scan";
   status: "open" | "done";
   evidence: string;
+  evidenceUrls?: string[];
+  mechanism?: string;
+  confidence?: "high" | "medium" | "low";
+  effort?: "small" | "medium" | "large";
+  hypothesis?: boolean;
 };
 export type ContentDraft = {
   id: string;
   restaurantId: string;
-  kind: "description" | "faq" | "schema";
+  kind: "about" | "faq" | "schema" | "menu" | "landing" | "outreach" | "description";
   title: string;
   body: string;
+  original?: string | null;
+  originalUrl?: string | null;
+  rationale?: string;
+  visibilityGap?: string;
+  recommendationId?: string;
+  model?: string;
+  history?: { at: string; action: "created" | "regenerated" | "edited" | "approved" | "exported" | "copied" | "pull_request"; detail?: string }[];
   createdAt: string;
-  source: "template";
-  status: "draft";
+  updatedAt?: string;
+  source: "template" | "sonar";
+  status: "draft" | "approved";
 };
 export type Measurement = {
   scanId: string;

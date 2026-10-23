@@ -78,8 +78,9 @@ export function Dashboard({ section }: { section: Section }) {
         toast.success("Website audit saved. Review your recommendations.");
       else if (name === "draft")
         toast.success(
-          "Template draft created. Review details before publishing.",
+          "Sonar draft created. Review details before publishing.",
         );
+      else if (name === "draft-update") toast.success("Draft updated.");
       else if (name === "recommendation") toast.success("Action updated.");
       else if (name === "queries") toast.success("Query bank saved.");
       else if (name === "cancel")
@@ -230,19 +231,39 @@ export function Dashboard({ section }: { section: Section }) {
               onUpdate={(id: string, status: Recommendation["status"]) =>
                 void action("recommendation", { id, status })
               }
+              onGenerate={(recommendation) =>
+                void action("draft", {
+                  recommendationId: recommendation.id,
+                  kind: recommendation.category === "Website"
+                    ? recommendation.title.toLowerCase().includes("schema")
+                      ? "schema"
+                      : "about"
+                    : recommendation.category === "AI discovery"
+                      ? "landing"
+                      : "about",
+                })
+              }
             />
           )}
           {section === "studio" && (
             <ContentStudio
               data={data}
               busy={Boolean(busy) || Boolean(activeScan)}
-              onCreate={(kind: ContentDraft["kind"]) =>
-                void action("draft", { kind })
+              onCreate={(kind: ContentDraft["kind"], regenerateOf?: string) =>
+                void action("draft", { kind, regenerateOf })
+              }
+              onUpdate={(id, body, approve, event) =>
+                void action("draft-update", { id, body, approve, event })
               }
             />
           )}
           {section === "measurement" && (
-            <Measurement data={data} measurements={measurements} />
+            <Measurement
+              data={data}
+              measurements={measurements}
+              busy={Boolean(busy) || Boolean(activeScan)}
+              onFollowUp={(baseline) => void action("scan", { count: baseline.queryCount, baselineScanId: baseline.id })}
+            />
           )}
           {section === "settings" && <Settings data={data} />}
         </div>

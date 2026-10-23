@@ -1,85 +1,30 @@
 "use client";
-import { UsersRound } from "lucide-react";
-import type { Measurement, Snapshot } from "@/lib/types";
-import { competitorsFor } from "@/lib/metrics";
+import { useMemo, useState } from "react";
+import { ChevronDown, ExternalLink, Trophy, UsersRound } from "lucide-react";
+import type { Measurement, QueryResult, Snapshot } from "@/lib/types";
+import { competitorsFor, competitorWins } from "@/lib/metrics";
+import { safeUrl } from "@/lib/utils";
 import { Badge, EmptyState, PageHeading, ScanButton } from "./shared";
+import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-export function Competitors({
-  data,
-  latest,
-  busy,
-  onScan,
-}: {
-  data: Snapshot;
-  latest?: Measurement;
-  busy: boolean;
-  onScan: () => void;
-}) {
-  const competitors = competitorsFor(
-    data.results.filter((r) => r.scanId === latest?.scanId),
-  );
-  return (
-    <>
-      <PageHeading
-        title="The local competitive picture"
-        description="See which restaurants share the conversation when diners ask AI where to eat."
-        action={<ScanButton busy={busy} onScan={onScan} />}
-      />
-      <Card>
-        <CardHeader>
-          <div>
-            <CardTitle>Share of voice</CardTitle>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Observed mentions across your latest measured scan
-            </p>
-          </div>
-          <Badge>{competitors.length} restaurants</Badge>
-        </CardHeader>
-        {competitors.length ? (
-          <CardContent>
-            <div className="mt-5 space-y-6">
-              {competitors.map((c, i) => (
-                <div key={c.name}>
-                  <div className="mb-2 flex flex-wrap items-center gap-3">
-                    <span className="text-xs text-muted-foreground">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <h3 className="text-sm font-medium">{c.name}</h3>
-                    {c.isTarget && <Badge tone="blue">Your restaurant</Badge>}
-                    <span className="ml-auto text-sm font-semibold">
-                      {c.shareOfVoice.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${c.isTarget ? "bg-primary" : "bg-[#7fa6f0]"}`}
-                      style={{ width: `${c.shareOfVoice}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-[10px] text-muted-foreground">
-                    {c.mentions} query mentions ·{" "}
-                    {c.averagePosition
-                      ? `Average position #${c.averagePosition.toFixed(1)}`
-                      : "No explicit rank"}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-8 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
-              Each restaurant counts once per successful query. Share of voice
-              is its mention count divided by all observed restaurant mentions.
-              These are model-suggested competitors, not verified business
-              listings.
-            </p>
-          </CardContent>
-        ) : (
-          <EmptyState
-            icon={UsersRound}
-            title="Your competition, revealed by real search"
-            description="After your first successful scan, restaurants named in AI responses will appear here. No competitors have been prefilled."
-          />
-        )}
-      </Card>
-    </>
-  );
+
+function Evidence({ result }: { result: QueryResult }) {
+  return <details className="rounded-lg border border-border bg-[#fbfaf7] p-3 text-xs"><summary className="cursor-pointer font-medium text-primary">View AI response evidence</summary><p className="mt-3 whitespace-pre-wrap leading-6 text-muted-foreground">{result.answer}</p>{result.citations.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{result.citations.map((citation) => { const href = safeUrl(citation); return href ? <a key={citation} href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] text-primary underline"><ExternalLink className="size-3" />Source</a> : null; })}</div>}</details>;
+}
+
+export function Competitors({ data, busy, onScan }: { data: Snapshot; latest?: Measurement; busy: boolean; onScan: () => void }) {
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const scanIds = useMemo(() => new Set(data.scans.filter((scan) => scan.status === "completed" || scan.status === "partial").map((scan) => scan.id)), [data.scans]);
+  const results = useMemo(() => data.results.filter((result) => scanIds.has(result.scanId) && result.status === "success"), [data.results, scanIds]);
+  const leaderboard = useMemo(() => competitorsFor(results), [results]);
+  const competitors = leaderboard.filter((competitor) => !competitor.isTarget).slice(0, 5);
+  const selected = competitors.find((competitor) => competitor.name === selectedName) ?? competitors[0];
+  const wins = selected ? competitorWins(results, selected.name) : [];
+  return <>
+    <PageHeading title="The local competitive picture" description="Restaurants shown here were actually named in completed Perplexity Sonar responses. This is a sampled visibility view, not an official ranking." action={<ScanButton busy={busy} onScan={onScan} />} />
+    {competitors.length ? <div className="space-y-6">
+      <Card><CardHeader><div><CardTitle>Competitor leaderboard</CardTitle><p className="mt-2 text-xs text-muted-foreground">Top five competitors by mentions across {results.length} valid responses.</p></div><Badge>{competitors.length} detected</Badge></CardHeader><CardContent><div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-xs"><thead className="border-b border-border text-[10px] uppercase tracking-wide text-muted-foreground"><tr><th className="pb-3 font-medium">Restaurant</th><th className="pb-3 font-medium">Mentions</th><th className="pb-3 font-medium">Share of voice</th><th className="pb-3 font-medium">Avg. position</th><th className="pb-3 font-medium">Outranks Café Athena</th></tr></thead><tbody>{competitors.map((competitor, index) => { const winCount = competitorWins(results, competitor.name).length; return <tr key={competitor.name} className={`border-b border-border/70 last:border-0 ${selected?.name === competitor.name ? "bg-[#f7f4ee]" : ""}`}><td className="py-4"><button onClick={() => setSelectedName(competitor.name)} className="flex items-center gap-2 text-left font-medium hover:text-primary"><span className="text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>{competitor.name}<ChevronDown className="size-3 -rotate-90" /></button></td><td className="py-4">{competitor.mentions}</td><td className="py-4">{competitor.shareOfVoice.toFixed(1)}%</td><td className="py-4">{competitor.averagePosition ? `#${competitor.averagePosition.toFixed(1)}` : "Unverified"}</td><td className="py-4">{winCount} queries</td></tr>; })}</tbody></table></div><p className="mt-4 text-[10px] leading-relaxed text-muted-foreground">A competitor “outranks” Café Athena when it is named while Café Athena is absent, or it has a lower explicit position in the same parsed recommendation list. Each restaurant counts once per valid response.</p></CardContent></Card>
+      {selected && <div className="grid gap-6 xl:grid-cols-[.9fr_1.4fr]"><Card><CardHeader><div><CardTitle>Side-by-side</CardTitle><p className="mt-2 text-xs text-muted-foreground">Sampled answer appearances</p></div><Trophy className="size-4 text-primary" /></CardHeader><CardContent className="space-y-5"><div className="flex items-center justify-between"><span className="font-medium">{selected.name}</span><span>{selected.mentions} mentions · {selected.shareOfVoice.toFixed(1)}%</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-[#7fa6f0]" style={{ width: `${selected.shareOfVoice}%` }} /></div>{(() => { const target = leaderboard.find((item) => item.isTarget); return <><div className="flex items-center justify-between"><span className="font-medium text-primary">Café Athena (you)</span><span>{target?.mentions ?? 0} mentions · {target?.shareOfVoice.toFixed(1) ?? "0.0"}%</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${target?.shareOfVoice ?? 0}%` }} /></div></>; })()}<p className="border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">Competitor websites are not audited unless an actual URL is confidently resolved. No domains have been inferred here.</p></CardContent></Card><Card><CardHeader><div><CardTitle>Queries where {selected.name} won</CardTitle><p className="mt-2 text-xs text-muted-foreground">Original Sonar answer evidence and permitted source links.</p></div><Badge tone="blue">{wins.length} wins</Badge></CardHeader><CardContent className="space-y-3">{wins.length ? wins.map((result) => <div key={result.id} className="rounded-lg border border-border p-4"><p className="font-medium">{result.query}</p><p className="mt-1 text-[11px] text-muted-foreground">{selected.name} was named; Café Athena {result.mentions.some((mention) => mention.isTarget) ? "was lower or unranked" : "was not named"}.</p><div className="mt-3"><Evidence result={result} /></div></div>) : <EmptyState icon={UsersRound} compact title="No winning queries in this sample" description="This competitor appeared, but no saved answer shows it ahead of Café Athena under the comparison rule." />}</CardContent></Card></div>}
+    </div> : <Card><EmptyState icon={UsersRound} title="Your competition, revealed by real search" description="After a completed scan, restaurants named in valid AI recommendation lists will appear here. No competitors have been prefilled." action={<Button onClick={onScan} disabled={busy}>Run a scan</Button>} /></Card>}
+  </>;
 }

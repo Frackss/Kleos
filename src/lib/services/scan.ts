@@ -13,17 +13,20 @@ const controllers = globalThis as unknown as {
   localLensControllers?: Map<string, AbortController>;
 };
 const running = () => (controllers.localLensControllers ??= new Map());
-export async function startScan(count = 12, queryIds?: string[]) {
+export async function startScan(count = 12, queryIds?: string[], baselineScanId?: string) {
   if (!process.env.PERPLEXITY_API_KEY)
     throw new Error(
       "Live search is not connected. Add PERPLEXITY_API_KEY and restart.",
     );
   const repo = getRepository();
   const data = await repo.read();
-  const enabled = data.queries.filter(
-    (q) => q.enabled && (!queryIds || queryIds.includes(q.id)),
-  );
-  const queries = enabled.slice(0, count);
+  const baseline = baselineScanId ? data.scans.find((scan) => scan.id === baselineScanId) : undefined;
+  if (baselineScanId && !baseline) throw new Error("Baseline scan not found.");
+  const requestedIds = baseline?.queries?.map((query) => query.id) ?? queryIds;
+  const enabled = data.queries.filter((q) => q.enabled && (!requestedIds || requestedIds.includes(q.id)));
+  const queries = requestedIds
+    ? requestedIds.flatMap((id) => enabled.filter((query) => query.id === id))
+    : enabled.slice(0, count);
   if (queries.length !== count)
     throw new Error(
       `This scan needs ${count} active queries; only ${queries.length} are available in the selection.`,
@@ -38,6 +41,9 @@ export async function startScan(count = 12, queryIds?: string[]) {
     completedCount: 0,
     queries,
     source: "live",
+    model: searchModelLabel(),
+    queryBankVersion: createHash("sha256").update(JSON.stringify(queries.map((query) => [query.id, query.text]))).digest("hex").slice(0, 16),
+    baselineScanId,
     querySet: createHash("sha256")
       .update(
         JSON.stringify({

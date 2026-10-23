@@ -55,6 +55,23 @@ export function competitorsFor(results: QueryResult[]): Competitor[] {
     }))
     .sort((a, b) => b.mentions - a.mentions);
 }
+export function competitorWins(
+  results: QueryResult[],
+  competitorName: string,
+) {
+  const key = competitorKey(competitorName);
+  return results.filter((result) => {
+    if (result.status !== "success") return false;
+    const competitor = result.mentions.find(
+      (mention) => !mention.isTarget && competitorKey(mention.name) === key,
+    );
+    if (!competitor) return false;
+    const target = result.mentions.find((mention) => mention.isTarget);
+    return !target ||
+      (competitor.position !== null &&
+        (target.position === null || competitor.position < target.position));
+  });
+}
 export function measure(
   scan: ScanRun,
   allResults: QueryResult[],

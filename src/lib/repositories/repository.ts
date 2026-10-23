@@ -28,6 +28,7 @@ export interface Repository {
     recommendations: Recommendation[],
   ): Promise<void>;
   saveDraft(draft: ContentDraft): Promise<void>;
+  updateDraft(draft: ContentDraft): Promise<void>;
   updateRecommendation(
     id: string,
     status: Recommendation["status"],
@@ -127,6 +128,11 @@ class MemoryRepository implements Repository {
   }
   async saveDraft(draft: ContentDraft) {
     this.data.drafts.unshift(draft);
+  }
+  async updateDraft(draft: ContentDraft) {
+    const index = this.data.drafts.findIndex((item) => item.id === draft.id);
+    if (index < 0) throw new Error("Draft not found.");
+    this.data.drafts[index] = structuredClone(draft);
   }
   async updateRecommendation(id: string, status: Recommendation["status"]) {
     const rec = this.data.recommendations.find((r) => r.id === id);
@@ -256,6 +262,14 @@ class SupabaseRepository implements Repository {
       payload: draft,
     });
     if (error) throw new Error("Could not save content draft.");
+  }
+  async updateDraft(draft: ContentDraft) {
+    const { error } = await this.db.from("content_drafts").upsert({
+      id: draft.id,
+      restaurant_id: draft.restaurantId,
+      payload: draft,
+    });
+    if (error) throw new Error("Could not update content draft.");
   }
   async updateRecommendation(id: string, status: Recommendation["status"]) {
     const { recommendations } = await this.read();

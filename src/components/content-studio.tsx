@@ -1,196 +1,38 @@
 "use client";
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  Braces,
-  Copy,
-  Download,
-  FilePenLine,
-  MessageSquareText,
-  Plus,
-} from "lucide-react";
+import { Braces, Check, Copy, Download, FilePenLine, Mail, MapPin, RefreshCw, UtensilsCrossed } from "lucide-react";
 import type { ContentDraft, Snapshot } from "@/lib/types";
 import { dateLabel } from "@/lib/utils";
 import { Badge, EmptyState, PageHeading } from "./shared";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-export function ContentStudio({
-  data,
-  busy,
-  onCreate,
-}: {
-  data: Snapshot;
-  busy: boolean;
-  onCreate: (kind: ContentDraft["kind"]) => void;
-}) {
+
+const actions: { kind: ContentDraft["kind"]; title: string; detail: string; icon: typeof FilePenLine }[] = [
+  { kind: "about", title: "Rewrite About page", detail: "A factual local introduction rooted in evidence.", icon: FilePenLine },
+  { kind: "faq", title: "Generate FAQ section", detail: "Visible customer FAQs; no schema is added automatically.", icon: MapPin },
+  { kind: "schema", title: "Restaurant JSON-LD", detail: "Validated Restaurant structured data.", icon: Braces },
+  { kind: "menu", title: "Improve menu descriptions", detail: "Clarity without invented dishes or prices.", icon: UtensilsCrossed },
+  { kind: "landing", title: "Draft local landing page", detail: "Useful Pacific Beach-focused content.", icon: MapPin },
+  { kind: "outreach", title: "Draft outreach email", detail: "A careful local food-writer pitch.", icon: Mail },
+];
+export function ContentStudio({ data, busy, onCreate, onUpdate }: { data: Snapshot; busy: boolean; onCreate: (kind: ContentDraft["kind"], regenerateOf?: string) => void; onUpdate: (id: string, body?: string, approve?: boolean, event?: "copied" | "exported") => void }) {
   const [selected, setSelected] = useState("");
-  const draft = data.drafts.find((d) => d.id === selected) ?? data.drafts[0];
-  async function copy() {
-    if (!draft) return;
-    try {
-      await navigator.clipboard.writeText(draft.body);
-      toast.success("Draft copied to clipboard");
-    } catch {
-      toast.error("Clipboard unavailable. Use Download instead.");
-    }
-  }
-  function download() {
-    if (!draft) return;
-    const url = URL.createObjectURL(
-      new Blob([draft.body], {
-        type: draft.kind === "schema" ? "application/ld+json" : "text/plain",
-      }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `cafe-athena-${draft.kind}.${draft.kind === "schema" ? "json" : "txt"}`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  return (
-    <>
-      <PageHeading
-        title="Good content. Clearer signals."
-        description="Turn your restaurant’s story into useful, search-friendly website content."
-      />
-      <div className="mb-6 rounded-lg border border-[#e8dcbf] bg-[#f7efd9]/50 px-4 py-3 text-xs leading-relaxed text-[#8a5a10]">
-        Template drafts use your supplied business profile. Verify all details
-        before publishing. Content is not AI-generated, automatically published,
-        or a promise of improved rankings.
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {[
-          {
-            kind: "description" as const,
-            title: "Restaurant description",
-            detail:
-              "A concise, locally relevant introduction for your website.",
-            icon: FilePenLine,
-          },
-          {
-            kind: "faq" as const,
-            title: "Discovery FAQs",
-            detail: "Clear answers to the questions potential guests ask.",
-            icon: MessageSquareText,
-          },
-          {
-            kind: "schema" as const,
-            title: "Restaurant schema",
-            detail: "JSON-LD to help machines understand your restaurant.",
-            icon: Braces,
-          },
-        ].map((c) => (
-          <Card key={c.kind}>
-            <CardContent className="pt-5">
-              <c.icon className="mb-5 size-5 text-[#1e4fa3]" />
-              <h2 className="text-sm font-semibold">{c.title}</h2>
-              <p className="mt-2 min-h-10 text-xs leading-relaxed text-muted-foreground">
-                {c.detail}
-              </p>
-              <Button
-                onClick={() => {
-                  setSelected("");
-                  onCreate(c.kind);
-                }}
-                disabled={busy}
-                variant="outline"
-                size="sm"
-                className="mt-5"
-              >
-                <Plus />
-                Create template draft
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <div className="mt-7 grid gap-5 lg:grid-cols-[280px_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Your drafts</CardTitle>
-            <Badge>{data.drafts.length}</Badge>
-          </CardHeader>
-          {data.drafts.length ? (
-            <div className="px-3 pb-3">
-              {data.drafts.map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => setSelected(d.id)}
-                  className={`mb-1 w-full rounded-lg px-3 py-3 text-left ${draft?.id === d.id ? "bg-accent" : "hover:bg-muted"}`}
-                >
-                  <span className="block text-xs font-medium">{d.title}</span>
-                  <span className="mt-1.5 block text-[10px] text-muted-foreground">
-                    {dateLabel(d.createdAt)} · Draft
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={FilePenLine}
-              title="Room for your next idea"
-              description="Choose a template above to create your first draft."
-              compact
-            />
-          )}
-        </Card>
-        <Card>
-          {draft ? (
-            <>
-              <CardHeader>
-                <div>
-                  <CardTitle>{draft.title}</CardTitle>
-                  <div className="mt-2">
-                    <Badge tone="amber">Review before publishing</Badge>
-                  </div>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={copy}
-                    aria-label="Copy draft"
-                  >
-                    <Copy />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={download}
-                    aria-label="Download draft"
-                  >
-                    <Download />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <label htmlFor="draft-content" className="sr-only">
-                  Draft content
-                </label>
-                <textarea
-                  id="draft-content"
-                  value={draft.body}
-                  readOnly
-                  className={`min-h-[340px] w-full resize-y rounded-lg border border-border bg-[#faf8f4] p-5 text-xs leading-7 ${draft.kind === "schema" ? "font-mono" : ""}`}
-                />
-                <p className="mt-3 text-[10px] text-muted-foreground">
-                  Saved{" "}
-                  {data.config.persistence === "memory"
-                    ? "temporarily in this server process"
-                    : "to Supabase"}{" "}
-                  · Template based on supplied details
-                </p>
-              </CardContent>
-            </>
-          ) : (
-            <EmptyState
-              icon={FilePenLine}
-              title="A better first impression starts here"
-              description="Create a draft, review the business details, and export it for your website."
-            />
-          )}
-        </Card>
-      </div>
-    </>
-  );
+  const draft = data.drafts.find((item) => item.id === selected) ?? data.drafts[0];
+  async function copy() { if (!draft) return; try { await navigator.clipboard.writeText(draft.body); onUpdate(draft.id, undefined, false, "copied"); toast.success("Draft copied"); } catch { toast.error("Clipboard unavailable. Use Download instead."); } }
+  function download() { if (!draft) return; const blob = new Blob([draft.body], { type: draft.kind === "schema" ? "application/ld+json" : "text/plain" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = `cafe-athena-${draft.kind}.${draft.kind === "schema" ? "json" : "txt"}`; link.click(); URL.revokeObjectURL(url); onUpdate(draft.id, undefined, false, "exported"); }
+  return <>
+    <PageHeading title="AI Action Studio" description="Turn measured gaps and verified website findings into reviewable content. Nothing is published automatically." />
+    <div className="mb-6 rounded-lg border border-[#e8dcbf] bg-[#f7efd9]/50 px-4 py-3 text-xs leading-relaxed text-[#8a5a10]">Sonar drafts use saved audit and visibility evidence. Review every claim before publishing; content generation does not guarantee discoverability improvements.</div>
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{actions.map((action) => <Card key={action.kind}><CardContent className="pt-5"><action.icon className="mb-5 size-5 text-primary" /><h2 className="text-sm font-semibold">{action.title}</h2><p className="mt-2 min-h-10 text-xs leading-relaxed text-muted-foreground">{action.detail}</p><Button onClick={() => { setSelected(""); onCreate(action.kind); }} disabled={busy} variant="outline" size="sm" className="mt-5">Generate fix</Button></CardContent></Card>)}</div>
+    <div className="mt-7 grid gap-5 lg:grid-cols-[280px_1fr]">
+      <Card><CardHeader><CardTitle>Action history</CardTitle><Badge>{data.drafts.length}</Badge></CardHeader>{data.drafts.length ? <div className="px-3 pb-3">{data.drafts.map((item) => <button key={item.id} onClick={() => setSelected(item.id)} className={`mb-1 w-full rounded-lg px-3 py-3 text-left ${draft?.id === item.id ? "bg-accent" : "hover:bg-muted"}`}><span className="block text-xs font-medium">{item.title}</span><span className="mt-1.5 block text-[10px] text-muted-foreground">{dateLabel(item.updatedAt ?? item.createdAt)} · {item.status}</span></button>)}</div> : <EmptyState icon={FilePenLine} title="No actions yet" description="Generate a fix from a recommendation or choose an action above." compact />}</Card>
+      <Card>{draft ? <DraftEditor key={draft.id} draft={draft} busy={busy} onCopy={copy} onDownload={download} onRegenerate={() => onCreate(draft.kind, draft.id)} onUpdate={onUpdate} /> : <EmptyState icon={FilePenLine} title="Choose an action" description="Generate a draft, review it, approve it, then export it." />}</Card>
+    </div>
+  </>;
+}
+function DraftEditor({ draft, busy, onCopy, onDownload, onRegenerate, onUpdate }: { draft: ContentDraft; busy: boolean; onCopy: () => void; onDownload: () => void; onRegenerate: () => void; onUpdate: (id: string, body?: string, approve?: boolean, event?: "copied" | "exported") => void }) {
+  const [body, setBody] = useState(draft.body);
+  const originalLabel = draft.kind === "menu" ? "Existing lunch/dinner menu baseline" : "Existing About content";
+  return <><CardHeader><div><CardTitle>{draft.title}</CardTitle><div className="mt-2 flex gap-2"><Badge tone={draft.status === "approved" ? "green" : "amber"}>{draft.status === "approved" ? "Approved" : "Review required"}</Badge><Badge tone="blue">{draft.source === "sonar" ? "Sonar draft" : "Template"}</Badge></div></div><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={onCopy} aria-label="Copy draft"><Copy /></Button><Button variant="ghost" size="icon" onClick={onDownload} aria-label="Download draft"><Download /></Button></div></CardHeader><CardContent>{draft.original ? <div className="mb-4 grid gap-3 md:grid-cols-2"><div className="rounded-lg bg-muted p-3 text-xs"><p className="mb-2 font-medium">{originalLabel}</p>{draft.originalUrl && <a href={draft.originalUrl} target="_blank" rel="noreferrer" className="mb-2 block text-primary underline">View source page</a>}{draft.original}</div><div className="rounded-lg border border-primary/20 bg-accent/40 p-3 text-xs"><p className="mb-2 font-medium">Proposed replacement</p>{draft.body}</div></div> : <p className="mb-4 rounded-lg bg-muted p-3 text-xs text-muted-foreground">Original unavailable — no real source page was captured for this action. The proposed draft is shown below.</p>}<textarea key={draft.id} value={body} onChange={(event) => setBody(event.target.value)} className={`min-h-[340px] w-full resize-y rounded-lg border border-border bg-[#faf8f4] p-5 text-xs leading-7 ${draft.kind === "schema" ? "font-mono" : ""}`} aria-label="Draft content" /><div className="mt-4 flex flex-wrap gap-2"><Button size="sm" disabled={busy} onClick={() => onUpdate(draft.id, body)}>Save edit</Button><Button size="sm" variant="outline" disabled={busy} onClick={onRegenerate}><RefreshCw />Regenerate</Button><Button size="sm" variant="outline" disabled={busy || draft.status === "approved"} onClick={() => onUpdate(draft.id, undefined, true)}><Check />Approve</Button></div><div className="mt-5 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground"><p><span className="font-medium text-foreground">Rationale: </span>{draft.rationale ?? "Review for accuracy before use."}</p>{draft.visibilityGap && <p className="mt-2"><span className="font-medium text-foreground">Associated visibility gap: </span>{draft.visibilityGap}</p>}<p className="mt-3">History: {(draft.history ?? []).map((event) => `${event.action} ${dateLabel(event.at)}`).join(" · ") || "No recorded events"}</p><p className="mt-3">No authorized GitHub content repository is configured. Download or copy is available; Kleos never publishes to the restaurant website.</p></div></CardContent></>;
 }

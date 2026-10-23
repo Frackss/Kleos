@@ -20,12 +20,14 @@ export function Recommendations({
   auditing,
   onAudit,
   onUpdate,
+  onGenerate,
 }: {
   data: Snapshot;
   busy: boolean;
   auditing: boolean;
   onAudit: () => void;
   onUpdate: (id: string, status: Recommendation["status"]) => void;
+  onGenerate: (recommendation: Recommendation) => void;
 }) {
   const [filter, setFilter] = useState("open");
   const recommendations = data.recommendations.filter(
@@ -119,6 +121,11 @@ export function Recommendations({
                     <p className="mt-2 text-xs leading-6 text-muted-foreground">
                       {r.description}
                     </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                      {r.confidence && <Badge tone="blue">{r.confidence} confidence</Badge>}
+                      {r.effort && <Badge>{r.effort} effort</Badge>}
+                      {r.hypothesis && <Badge tone="amber">Hypothesis</Badge>}
+                    </div>
                     <details className="mt-4 text-[11px] text-muted-foreground">
                       <summary className="cursor-pointer font-medium">
                         Why this action?
@@ -126,6 +133,8 @@ export function Recommendations({
                       <p className="mt-2 rounded-md bg-muted p-3 leading-relaxed">
                         {r.evidence}
                       </p>
+                      {r.mechanism && <p className="mt-2 leading-relaxed"><span className="font-medium text-foreground">Expected mechanism: </span>{r.mechanism}</p>}
+                      {r.evidenceUrls?.length ? <div className="mt-2 flex flex-wrap gap-2">{r.evidenceUrls.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer" className="text-primary underline">Evidence source</a>)}</div> : null}
                     </details>
                     {r.id === "setup-scan" && (
                       <Link
@@ -145,6 +154,9 @@ export function Recommendations({
                         <ArrowUpRight className="size-3" />
                       </Link>
                     )}
+                    <Button onClick={() => onGenerate(r)} disabled={busy} size="sm" variant="outline" className="mt-4">
+                      Generate Fix
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -168,12 +180,12 @@ export function Recommendations({
           {audit ? (
             <CardContent>
               <p className="mb-5 text-[11px] text-muted-foreground">
-                Last audited {dateLabel(audit.createdAt)}
+                Last audited {dateLabel(audit.createdAt)} · <a href={audit.url} target="_blank" rel="noreferrer" className="text-primary underline">inspected page</a>
               </p>
               <div className="space-y-4">
                 {audit.checks.map((c) => (
                   <div key={c.label} className="flex items-start gap-2.5">
-                    {c.passed ? (
+                    {c.status === "present" ? (
                       <Check className="mt-0.5 size-3.5 shrink-0 text-olive" />
                     ) : (
                       <Circle className="mt-0.5 size-3.5 shrink-0 text-[#8a5a10]" />
@@ -183,13 +195,13 @@ export function Recommendations({
                       <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
                         {c.detail}
                       </p>
+                      {c.evidence && <p className="mt-1 text-[10px] leading-relaxed text-[#4a5170]">Evidence: {c.evidence}</p>}
                     </div>
                   </div>
                 ))}
               </div>
               <p className="mt-5 border-t border-border pt-4 text-[10px] leading-relaxed text-muted-foreground">
-                Live homepage HTML only. JavaScript-rendered content, other
-                pages, and third-party listings are not evaluated.
+                Homepage HTML plus up to three actual linked menu pages. JavaScript-rendered content and third-party listings are not audited.
               </p>
             </CardContent>
           ) : (

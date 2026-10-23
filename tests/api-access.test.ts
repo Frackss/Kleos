@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { GET, POST } from "../src/app/api/[action]/route";
 
-test("production demo data and writes require no user session, even with a provider key configured", async () => {
+test("production demo data requires no user session and exposes no auth endpoints", async () => {
   const original = {
     NODE_ENV: process.env.NODE_ENV,
     PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY,
@@ -41,8 +41,7 @@ test("production demo data and writes require no user session, even with a provi
       request("draft", { kind: "schema" }),
       context("draft"),
     );
-    assert.equal(draft.status, 200);
-    assert.equal((await draft.json()).kind, "schema");
+    assert.equal(draft.status, 503);
     for (const action of ["login", "logout"])
       assert.equal(
         (await POST(request(action, {}), context(action))).status,

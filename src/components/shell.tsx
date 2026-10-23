@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { useState } from "react";
 import {
-  Aperture,
   ArrowUpRight,
   ChartNoAxesCombined,
   ChevronDown,
@@ -82,11 +81,8 @@ export function Shell({
           className="flex h-[76px] items-center gap-2.5 px-7"
           aria-label="Kleos overview"
         >
-          <span className="flex size-8 items-center justify-center rounded-full bg-primary text-white">
-            <Aperture className="size-5" strokeWidth={2.3} />
-          </span>
           <span className="font-serif text-[24px] font-bold tracking-[-.7px] text-primary">
-            Kleos
+            KLEOS
           </span>
         </Link>
         <div className="mx-4 mb-8 rounded-lg border border-border bg-white p-3">

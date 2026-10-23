@@ -19,3 +19,9 @@ export async function runSandboxExperiment(id: string) {
   for (const variant of order) { const result = await simulatedRecommendation(query, variant === "original" ? originalProfile : improvedProfile); if (variant === "original") experiment.originalResults.push(result); else experiment.improvedResults.push(result); }
   const completedAt = new Date().toISOString(); const valid = [...experiment.originalResults, ...experiment.improvedResults].filter((result) => result.status === "success").length; const final: ContentDraft = { ...draft, sandbox: { ...experiment, status: valid === 4 ? "completed" : valid ? "partial" : "failed", completedAt }, updatedAt: completedAt, history: [...(draft.history ?? []), { at: completedAt, action: "visibility_rechecked", detail: "Controlled AI Recommendation Simulation completed" }] }; await repo.updateDraft(final); return final;
 }
+export async function selectLiveBaseline(id: string) {
+  const repo = getRepository(); const data = await repo.read(); const draft = data.drafts.find((item) => item.id === id);
+  if (!draft?.sandbox) throw new Error("Sandbox experiment not found.");
+  const now = new Date().toISOString();
+  await repo.updateDraft({ ...draft, sandbox: { ...draft.sandbox, originalResults: [] }, updatedAt: now, history: [...(draft.history ?? []), { at: now, action: "edited", detail: "Original sandbox trials removed; live Sonar baseline selected" }] });
+}

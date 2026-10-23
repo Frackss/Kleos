@@ -12,7 +12,7 @@ import {
 import { CheerioAuditService } from "@/lib/services/audit";
 import { SonarContentService } from "@/lib/services/content";
 import { verifyPublication } from "@/lib/services/publish";
-import { runSandboxExperiment } from "@/lib/services/sandbox";
+import { runSandboxExperiment, selectLiveBaseline } from "@/lib/services/sandbox";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -106,6 +106,7 @@ const actionSchemas = {
   verifyPublication: z.object({ id: z.string().uuid(), url: z.string().url().max(2000) }).strict(),
   recheckPublication: z.object({ id: z.string().uuid() }).strict(),
   sandboxTest: z.object({ id: z.string().uuid() }).strict(),
+  sandboxLiveBaseline: z.object({ id: z.string().uuid() }).strict(),
   recommendation: z.object({
     id: z.string().min(1).max(100),
     status: z.enum(["open", "done"]),
@@ -232,6 +233,10 @@ export async function POST(
     if (action === "sandbox-test") {
       const body = actionSchemas.sandboxTest.parse(await request.json());
       return json(await runSandboxExperiment(body.id));
+    }
+    if (action === "sandbox-live-baseline") {
+      const body = actionSchemas.sandboxLiveBaseline.parse(await request.json());
+      await selectLiveBaseline(body.id); return json({ ok: true });
     }
     if (action === "recommendation") {
       const body = actionSchemas.recommendation.parse(await request.json());

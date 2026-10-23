@@ -1,0 +1,116 @@
+@import "tailwindcss";
+@import "./fonts.css";
+@theme inline {
+  --color-background: #f7f4ee;
+  --color-foreground: #1b2340;
+  --color-primary: #1e4fa3;
+  --color-muted: #ede7db;
+  --color-muted-foreground: #4a5170;
+  --color-border: #e6dfd1;
+  --color-accent: #eaf0fb;
+  --color-olive: #4f5e1f;
+  --color-terracotta: #a9461f;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-serif: "Arvo", Georgia, serif;
+}
+:root {
+  color-scheme: light;
+}
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+h1 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+}
+button,
+a,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled),
+select {
+  cursor: pointer;
+}
+::selection {
+  background: #dbe5f7;
+  color: #1b2340;
+}
+input,
+textarea,
+select {
+  outline: none;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #1e4fa3;
+  outline-offset: 3px;
+}
+.skeleton {
+  animation: pulse 1.6s ease-in-out infinite;
+  background: #ede7db;
+  border-radius: 16px;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: enter 0.2s ease-out;
+}
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.greek-key {
+  height: 12px;
+  width: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12'%3E%3Cpath d='M0 11H18V1H6V7H12' fill='none' stroke='%231E4FA3' stroke-width='1.4' stroke-opacity='.45'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+}
+.hero-card {
+  background: #1b2340;
+  color: #f7f4ee;
+  border-color: #1b2340;
+}
+.answer-copy {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  line-height: 1.6;
+}
+.answer-copy mark {
+  background: #f6ddd2;
+  color: #1b2340;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+.answer-copy mark[data-target="true"] {
+  background: #e5e9d4;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

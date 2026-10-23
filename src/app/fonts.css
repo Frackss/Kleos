@@ -1,0 +1,42 @@
+@font-face {
+  font-family: "Arvo";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/arvo-400-italic.ttf) format("truetype");
+}
+@font-face {
+  font-family: "Arvo";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/arvo-700-italic.ttf) format("truetype");
+}
+@font-face {
+  font-family: "Arvo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/arvo-400-normal.ttf) format("truetype");
+}
+@font-face {
+  font-family: "Arvo";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/arvo-700-normal.ttf) format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/inter-400.ttf) format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(/fonts/inter-600.ttf) format("truetype");
+}

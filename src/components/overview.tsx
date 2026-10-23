@@ -116,9 +116,10 @@ export function Overview({
     r.mentions.some((m) => m.isTarget),
   ).length;
   const competitors = competitorsFor(results);
-  const ahead = competitors
-    .filter((c) => !c.isTarget && c.mentions > mentioned)
-    .slice(0, 3);
+  const comparison = [
+    ...competitors.filter((c) => !c.isTarget).slice(0, 3),
+    { name: data.restaurant.name, mentions: mentioned, isTarget: true },
+  ];
   const delta = comparableMentionDelta(measurements);
   const questions = results.length
     ? results.map((r) => ({ id: r.queryId, text: r.query }))
@@ -229,7 +230,7 @@ export function Overview({
           </div>
           <div className="mt-4 flex-1 border-t border-[#343d60] pt-5">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="section-label text-[#c9cde0]">Ahead of you</h3>
+              <h3 className="section-label text-[#c9cde0]">How you compare</h3>
               <Link
                 href="/competitors"
                 aria-label="Explore competitors"
@@ -238,19 +239,20 @@ export function Overview({
                 <ArrowUpRight className="size-3.5" />
               </Link>
             </div>
-            {ahead.length ? (
+            {latest ? (
               <div className="space-y-3.5">
-                {ahead.map((c) => (
+                {comparison.map((c) => (
                   <div
                     key={c.name}
-                    className="grid grid-cols-[minmax(90px,1fr)_1fr_35px] items-center gap-3 text-[11px]"
+                    className={`grid grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_35px] items-center gap-3 text-xs ${c.isTarget ? "font-semibold text-white" : "text-[#d8dced]"}`}
+                    title={`${c.mentions} of ${latest.successfulQueries} valid answers mention ${c.name}. Mention rate = answers naming this restaurant ÷ valid answers.`}
                   >
-                    <span className="truncate" title={c.name}>
-                      {c.name}
+                    <span className="min-w-0 leading-snug">
+                      {c.name}{c.isTarget ? " (you)" : ""}
                     </span>
                     <div className="h-1.5 overflow-hidden rounded-full bg-[#343d60]">
                       <div
-                        className="h-full rounded-full bg-[#c9cde0]"
+                        className={`h-full rounded-full ${c.isTarget ? "bg-[#7fa6f0]" : "bg-[#c9cde0]"}`}
                         style={{
                           width: `${(c.mentions / latest!.successfulQueries) * 100}%`,
                         }}
@@ -267,9 +269,7 @@ export function Overview({
               </div>
             ) : (
               <p className="max-w-[240px] font-serif text-lg leading-relaxed text-[#d8dced]">
-                {latest
-                  ? "No observed restaurant has more mentions in this scan."
-                  : "See who gets recommended when diners ask where to eat."}
+                Run a scan to compare Café Athena with the top three restaurants mentioned in real AI answers.
               </p>
             )}
           </div>
